@@ -1,0 +1,62 @@
+[
+  {
+    "id": "test-suite",
+    "prompt": "Run the test suite",
+    "expected_route": "testing",
+    "expected_tool": "run_tests"
+  },
+  {
+    "id": "project-status",
+    "prompt": "What is the current project status?",
+    "expected_route": "project",
+    "expected_tool": "project_status"
+  },
+  {
+    "id": "calculate",
+    "prompt": "Calculate 18 * 7",
+    "expected_route": "tools",
+    "expected_tool": "calculator"
+  },
+  {
+    "id": "list-files",
+    "prompt": "List the files in the sandbox",
+    "expected_route": "tools",
+    "expected_tool": "list_sandbox_files"
+  },
+  {
+    "id": "read-notes",
+    "prompt": "Read the project_notes.txt document",
+    "expected_route": "tools",
+    "expected_tool": "read_sandbox_file"
+  },
+  {
+    "id": "validate-suite",
+    "prompt": "Validate the pytest suite",
+    "expected_route": "testing",
+    "expected_tool": "run_tests"
+  },
+  {
+    "id": "architecture",
+    "prompt": "Show the project architecture",
+    "expected_route": "project",
+    "expected_tool": "project_status"
+  },
+  {
+    "id": "calculator-2",
+    "prompt": "Calculate 144 / 12",
+    "expected_route": "tools",
+    "expected_tool": "calculator"
+  },
+  {
+    "id": "sandbox-read",
+    "prompt": "Read sample_config.json from the sandbox",
+    "expected_route": "tools",
+    "expected_tool": "read_sandbox_file"
+  },
+  {
+    "id": "generic",
+    "prompt": "Explain what an AI agent is",
+    "expected_route": "core",
+    "expected_tool": null
+  }
+]
