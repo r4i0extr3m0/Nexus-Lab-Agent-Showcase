@@ -118,3 +118,15 @@ def test_tool_schema_validation_rejects_unknown_argument():
 def test_default_tools_are_safe_and_discoverable():
     names = build_default_registry().names()
     assert names == ["calculator", "project_status", "run_tests"]
+
+
+def test_calculator_rejects_unsupported_operations():
+    registry = build_default_registry()
+    with pytest.raises(ValueError, match="unsupported"):
+        registry.execute("calculator", {"expression": "__import__('os').system('whoami')"})
+
+
+def test_calculator_rejects_division_by_zero():
+    registry = build_default_registry()
+    with pytest.raises(ValueError, match="division by zero"):
+        registry.execute("calculator", {"expression": "10 / 0"})
