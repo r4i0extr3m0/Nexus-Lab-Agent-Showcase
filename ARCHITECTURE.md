@@ -72,3 +72,31 @@ A bounded loop provides a simple failure mode for tool-calling systems. If the a
 ## Production evolution
 
 A production version would typically add stronger policy evaluation, structured tool error contracts, richer tracing, persistence, retries, human approval for sensitive actions, and more comprehensive evaluation. Those concerns are intentionally outside the scope of this showcase.
+
+
+## Constrained I/O boundary
+
+The showcase includes two real file tools:
+
+- `list_sandbox_files`
+- `read_sandbox_file`
+
+Both resolve paths beneath `showcase/sandbox/` and reject path traversal. This demonstrates real I/O while keeping the model away from the repository filesystem.
+
+## Provider resilience
+
+The local Ollama adapter retries timeout and connection failures with a bounded exponential backoff. Other HTTP failures are surfaced immediately.
+
+The OpenAI-compatible adapter uses the same `ChatProvider` interface, demonstrating that the orchestration layer does not depend on a single inference backend.
+
+## Evaluation
+
+`showcase/eval_cases.json` contains ten curated scenarios with expected routes and tools.
+
+`showcase/evaluate.py` provides:
+
+- deterministic routing evaluation;
+- optional live tool-calling evaluation against Ollama;
+- optional live evaluation against the OpenAI-compatible provider.
+
+The live evaluation is intentionally separate from CI so model behavior is not mistaken for deterministic runtime correctness.
