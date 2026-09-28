@@ -173,6 +173,16 @@ class OllamaProvider:
                     raise ConnectionError(
                         f"Could not connect to Ollama after {self.max_retries + 1} attempts"
                     ) from exc
+            except requests.HTTPError as exc:
+                last_error = exc
+                if response.status_code == 400:
+                    try:
+                        error_detail = response.json().get("error", response.text)
+                    except ValueError:
+                        error_detail = response.text
+                    raise ValueError(f"Ollama rejected the request (often means the model does not support tools): {error_detail}") from exc
+                if attempt >= self.max_retries:
+                    raise
 
             time.sleep(self.retry_backoff * (2**attempt))
 
