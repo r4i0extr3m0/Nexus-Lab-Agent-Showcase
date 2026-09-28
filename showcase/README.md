@@ -41,6 +41,7 @@ From the repository root:
 python -m pip install -r showcase/requirements.txt
 python -m pytest showcase/tests -q
 python showcase/evaluate.py
+python showcase/demo_trace.py
 ```
 
 With Ollama running:
@@ -86,3 +87,16 @@ The example intentionally exposes only `run_tests`, an allowlisted command that 
 ## Limitations
 
 This is a portfolio-scale reference implementation, not the production Nexus runtime. The focus is on making agent-control decisions visible and testable.
+
+
+## Reviewer demo
+
+`demo_trace.py` uses a deterministic provider to exercise the real runtime, two tools, and the execution trace without requiring a model. It is useful for quickly verifying the architecture on a clean machine.
+
+## Evaluation data
+
+The ten evaluation cases live in `eval_cases.json`.
+
+The deterministic evaluator checks route selection. The live evaluator sends the same prompts to a configured provider and checks the first selected tool against the expected tool.
+
+This distinction keeps infrastructure correctness separate from model-dependent behavior.
