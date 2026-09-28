@@ -91,11 +91,14 @@ class ToolRegistry:
         for key, value in arguments.items():
             expected = properties.get(key, {}).get("type")
             expected_type = type_map.get(expected)
-            if expected_type is not None and not isinstance(value, expected_type):
-                raise ValueError(
-                    f"invalid type for {spec.name}.{key}: expected {expected}, "
-                    f"got {type(value).__name__}"
-                )
+            if expected_type is not None:
+                if not isinstance(value, expected_type) or (
+                    expected in ("integer", "number") and isinstance(value, bool)
+                ):
+                    raise ValueError(
+                        f"invalid type for {spec.name}.{key}: expected {expected}, "
+                        f"got {type(value).__name__}"
+                    )
 
     def names(self) -> list[str]:
         return sorted(self._tools)
@@ -143,9 +146,10 @@ class OllamaProvider:
         payload = {
             "model": self.model,
             "messages": messages,
-            "tools": tools,
             "stream": False,
         }
+        if tools:
+            payload["tools"] = tools
         last_error: Exception | None = None
 
         for attempt in range(self.max_retries + 1):
@@ -197,17 +201,20 @@ class OpenAIProvider:
         if not self.api_key:
             raise ValueError("OPENAI_API_KEY is required for OpenAIProvider")
 
+        payload = {
+            "model": self.model,
+            "messages": messages,
+        }
+        if tools:
+            payload["tools"] = tools
+
         response = requests.post(
             f"{self.base_url}/chat/completions",
             headers={
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
             },
-            json={
-                "model": self.model,
-                "messages": messages,
-                "tools": tools,
-            },
+            json=payload,
             timeout=self.timeout,
         )
         response.raise_for_status()
@@ -235,9 +242,11 @@ class IntentRouter:
     }
 
     def route(self, text: str) -> tuple[str, float]:
+        import re
         normalized = text.lower()
+        tokens = set(re.findall(r'\b\w+\b', normalized))
         scores = {
-            name: sum(term in normalized for term in terms)
+            name: sum(term in tokens for term in terms)
             for name, terms in self.RULES.items()
         }
         best = max(scores, key=scores.get)
@@ -275,7 +284,7 @@ def build_default_registry() -> ToolRegistry:
             handler=lambda: {
                 "project": "Nexus Agent Showcase",
                 "architecture": "router -> runtime -> tools -> trace",
-                "inference": "Ollama local",
+                "inference": "Local & Cloud Providers",
                 "max_tool_rounds": 3,
             },
         )
@@ -407,8 +416,11 @@ def _read_sandbox_file(path: str, max_chars: int = 4000) -> dict[str, Any]:
     if not os.path.isfile(filename):
         raise FileNotFoundError(f"sandbox file not found: {path}")
 
-    with open(filename, "r", encoding="utf-8") as handle:
-        content = handle.read(max_chars + 1)
+    try:
+        with open(filename, "r", encoding="utf-8") as handle:
+            content = handle.read(max_chars + 1)
+    except UnicodeDecodeError:
+        raise ValueError("sandbox file is not a valid UTF-8 text file")
 
     return {
         "path": path,
@@ -420,20 +432,26 @@ def _read_sandbox_file(path: str, max_chars: int = 4000) -> dict[str, Any]:
 def _run_tests() -> dict[str, Any]:
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     command = [sys.executable, "-m", "pytest", "showcase/tests", "-q"]
-    completed = subprocess.run(
-        command,
-        cwd=root,
-        capture_output=True,
-        text=True,
-        timeout=120,
-        check=False,
-    )
-    return {
-        "command": "python -m pytest showcase/tests -q",
-        "return_code": completed.returncode,
-        "passed": completed.returncode == 0,
-        "output": (completed.stdout + completed.stderr)[-4000:],
-    }
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+        return {
+            "command": "python -m pytest showcase/tests -q",
+            "return_code": completed.returncode,
+            "passed": completed.returncode == 0,
+            "output": (completed.stdout + completed.stderr)[-4000:],
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "command": "python -m pytest showcase/tests -q",
+            "error": "test suite timed out after 120 seconds",
+        }
 
 
 class NexusAgentRuntime:
@@ -461,26 +479,30 @@ class NexusAgentRuntime:
             {
                 "role": "system",
                 "content": (
-                    "Você é o Nexus Agent Showcase. "
-                    "Use ferramentas quando necessário. "
-                    "Não invente resultados de ferramentas. "
-                    f"Rota detectada: {agent} ({confidence:.2f})."
+                    "You are the Nexus Agent Showcase. "
+                    "Use tools when necessary. "
+                    "Do not hallucinate tool results. "
+                    f"Detected route: {agent} ({confidence:.2f})."
                 ),
             },
             {"role": "user", "content": user_input},
         ]
 
         try:
-            for round_index in range(1, self.max_tool_rounds + 1):
+            for round_index in range(1, self.max_tool_rounds + 2):
                 trace.rounds = round_index
-                payload = self.provider.chat(messages, self.registry.schemas())
+                current_schemas = self.registry.schemas() if round_index <= self.max_tool_rounds else []
+                payload = self.provider.chat(messages, current_schemas)
                 message = payload.get("message", {})
                 if not isinstance(message, dict):
                     raise ValueError("provider returned an invalid message")
 
                 tool_calls = message.get("tool_calls") or []
                 if not tool_calls:
-                    final_text = str(message.get("content", "")).strip()
+                    final_text = message.get("content")
+                    if final_text is None:
+                        final_text = ""
+                    final_text = str(final_text).strip()
                     if not final_text:
                         raise ValueError("provider returned an empty final response")
                     trace.finish("SUCCESS", started_at)
@@ -488,6 +510,7 @@ class NexusAgentRuntime:
 
                 messages.append(message)
                 for call in tool_calls:
+                    call_id = call.get("id")
                     function = call.get("function", {})
                     name = function.get("name")
                     raw_arguments = function.get("arguments", {})
@@ -496,21 +519,33 @@ class NexusAgentRuntime:
                         if isinstance(raw_arguments, str)
                         else raw_arguments
                     )
-                    result = self.registry.execute(name, arguments)
-                    trace.tool_calls.append(
-                        {"round": round_index, "name": name, "arguments": arguments}
-                    )
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_name": name,
-                            "content": json.dumps(result, ensure_ascii=False),
-                        }
-                    )
+                    
+                    try:
+                        result = self.registry.execute(name, arguments)
+                        trace.tool_calls.append(
+                            {"round": round_index, "name": name, "arguments": arguments, "status": "success"}
+                        )
+                        result_str = json.dumps(result, ensure_ascii=False)
+                    except Exception as e:
+                        trace.tool_calls.append(
+                            {"round": round_index, "name": name, "arguments": arguments, "status": "error", "error": str(e)}
+                        )
+                        result_str = json.dumps({"error": str(e)}, ensure_ascii=False)
+
+                    tool_message = {
+                        "role": "tool",
+                        "content": result_str,
+                    }
+                    if call_id:
+                        tool_message["tool_call_id"] = call_id
+                    else:
+                        tool_message["tool_name"] = name
+                    messages.append(tool_message)
 
             raise RuntimeError("maximum tool rounds exceeded")
-        except Exception:
+        except Exception as exc:
             trace.finish("FAILED", started_at)
+            exc.trace = trace  # type: ignore
             raise
 
 

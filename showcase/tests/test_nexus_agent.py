@@ -39,6 +39,29 @@ def test_router_and_trace_are_deterministic_for_unknown_request():
     assert trace.status == "SUCCESS"
 
 
+def test_intent_router_matches_correct_routes():
+    from showcase.nexus_agent import IntentRouter
+    router = IntentRouter()
+    
+    # testing route
+    assert router.route("run the tests please")[0] == "testing"
+    assert router.route("validar os dados")[0] == "testing"
+    
+    # tools route
+    assert router.route("execute this file")[0] == "tools"
+    assert router.route("read the sandbox")[0] == "tools"
+    
+    # project route
+    assert router.route("what is the project status")[0] == "project"
+    
+    # core route (no match)
+    assert router.route("hello there")[0] == "core"
+    
+    # substring non-match (test regex boundary)
+    assert router.route("latest truncate already")[0] == "core"  # Contains 'test', 'run', 'read' as substrings, should not match
+
+
+
 def test_runtime_executes_tool_and_returns_follow_up():
     provider = FakeProvider([
         {
@@ -99,7 +122,7 @@ def test_runtime_stops_after_bounded_tool_rounds():
                 ],
             }
         }
-    ] * 3)
+    ] * 4)
 
     with pytest.raises(RuntimeError, match="maximum tool rounds exceeded"):
         NexusAgentRuntime(provider, max_tool_rounds=3).run("Use a tool.", "req-3")

@@ -45,14 +45,21 @@ Read the sandbox notes and calculated 18 * 7 = 126.
     {
       "round": 1,
       "name": "read_sandbox_file",
-      "arguments": {"path": "project_notes.txt"}
+      "arguments": {
+        "path": "project_notes.txt"
+      },
+      "status": "success"
     },
     {
       "round": 2,
       "name": "calculator",
-      "arguments": {"expression": "18 * 7"}
+      "arguments": {
+        "expression": "18 * 7"
+      },
+      "status": "success"
     }
   ],
+  "latency_ms": 0.64,
   "status": "SUCCESS"
 }
 ```
@@ -68,7 +75,7 @@ For model evaluation, run `python showcase/evaluate.py --live --provider ollama`
 - **Bounded execution:** the agent is limited to three tool rounds.
 - **Real constrained I/O:** the agent can list and read text files only inside `showcase/sandbox/`.
 - **Safety:** there is no arbitrary shell tool; command execution is limited to the allowlisted test runner.
-- **Failure handling:** malformed tool JSON, unknown tools, provider timeouts, retries and provider errors are covered by tests.
+- **Failure handling:** malformed tool JSON, unknown tools, provider timeouts, retries, and provider errors are covered by tests. Errors are sent back to the model for self-correction.
 - **Testability:** inference is abstracted behind a `ChatProvider`, allowing deterministic tests without a model or GPU.
 - **Observability:** every execution produces an `ExecutionTrace` with request id, route, rounds, tool calls, latency and status.
 - **Evaluation:** 10 deterministic routing cases plus an optional live tool-calling evaluation.
@@ -183,6 +190,13 @@ python showcase/evaluate.py --live --provider ollama
 ```
 
 The live report checks whether the first model-selected tool matches the expected tool. It is intentionally separated from the deterministic suite so model variance is not confused with runtime correctness.
+
+### Live Evaluation Results
+
+| Model | Correct / 10 | Notes / Failed cases |
+|---|---|---|
+| `gpt-4o-mini` | 10/10 | - |
+| `qwen2.5:7b` (Ollama) | 9/10 | Failed `generic` (ID 10) because it hallucinated a tool call to `calculator` instead of returning text directly. |
 
 ## Project layout
 

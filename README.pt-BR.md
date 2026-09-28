@@ -53,4 +53,11 @@ Avaliação live:
 python showcase/evaluate.py --live --provider ollama
 ```
 
+### Resultados da Avaliação Live
+
+| Modelo | Acertos / 10 | Notas / Casos que falharam |
+|---|---|---|
+| `gpt-4o-mini` | 10/10 | - |
+| `qwen2.5:7b` (Ollama) | 9/10 | Falhou no `generic` (ID 10) porque alucinou uma chamada de tool para o `calculator` em vez de responder diretamente o texto. |
+
 A implementação principal está em [showcase/nexus_agent.py](showcase/nexus_agent.py).
