@@ -11,28 +11,41 @@ This repository presents a compact agent runtime built to demonstrate practical 
 
 ## 30-second reviewer demo
 
-Deterministic runtime trace — no GPU, Ollama, or API key required:
+Run a complete agent loop without a GPU, Ollama, or API key:
 
-```text
-$ python showcase/evaluate.py
-
-Routing evaluation
-10/10 cases correct (100.0%)
-
-$ python -m pytest showcase/tests -q
-17 passed
-
-Example execution trace
-request_id: demo-001
-route: tools
-tool_calls:
-  - calculator(expression="18 * 7")
-  - read_sandbox_file(path="project_notes.txt")
-status: SUCCESS
-latency_ms: 2.14
+```powershell
+python showcase/demo_trace.py
 ```
 
-The transcript above is a deterministic showcase run used to demonstrate the control flow. The live tool-calling evaluation can be run against Ollama or OpenAI-compatible inference with `--live`.
+Representative output:
+
+```text
+Read the sandbox notes and calculated 18 * 7 = 126.
+
+--- execution trace ---
+{
+  "request_id": "demo-local-001",
+  "agent": "tools",
+  "rounds": 3,
+  "tool_calls": [
+    {
+      "round": 1,
+      "name": "read_sandbox_file",
+      "arguments": {"path": "project_notes.txt"}
+    },
+    {
+      "round": 2,
+      "name": "calculator",
+      "arguments": {"expression": "18 * 7"}
+    }
+  ],
+  "status": "SUCCESS"
+}
+```
+
+The demo uses a deterministic provider, but the trace goes through the same `NexusAgentRuntime`, `ToolRegistry`, sandbox and calculator used by the live agent.
+
+For model evaluation, run `python showcase/evaluate.py --live --provider ollama` or the OpenAI-compatible provider.
 
 ## What a reviewer can inspect quickly
 
@@ -163,6 +176,7 @@ The live report checks whether the first model-selected tool matches the expecte
 .
 ├── showcase/
 │   ├── nexus_agent.py
+│   ├── demo_trace.py
 │   ├── evaluate.py
 │   ├── eval_cases.json
 │   ├── README.md
