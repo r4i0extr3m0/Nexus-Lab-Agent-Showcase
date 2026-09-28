@@ -289,6 +289,8 @@ def test_openai_provider_maps_chat_completion_response(monkeypatch):
     assert calls["headers"]["Authorization"] == "Bearer test-key"
 
 
-def test_openai_provider_requires_api_key():
+def test_openai_provider_requires_api_key(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
     with pytest.raises(ValueError, match="OPENAI_API_KEY"):
         OpenAIProvider(api_key="")
