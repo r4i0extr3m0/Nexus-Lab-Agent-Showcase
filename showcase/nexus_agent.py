@@ -121,25 +121,101 @@ class ChatProvider(Protocol):
 
 
 class OllamaProvider:
-    """Minimal Ollama /api/chat adapter. No cloud API is required."""
+    """Minimal Ollama /api/chat adapter with bounded retry behavior."""
 
-    def __init__(self, base_url: str | None = None, model: str | None = None) -> None:
+    def __init__(
+        self,
+        base_url: str | None = None,
+        model: str | None = None,
+        timeout: float = 120.0,
+        max_retries: int = 2,
+        retry_backoff: float = 0.25,
+    ) -> None:
+        if max_retries < 0:
+            raise ValueError("max_retries must be >= 0")
         self.base_url = (base_url or os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")).rstrip("/")
         self.model = model or os.getenv("NEXUS_LAB_MODEL", "qwen3.5:9b")
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self.retry_backoff = retry_backoff
 
     def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "tools": tools,
+            "stream": False,
+        }
+        last_error: Exception | None = None
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = requests.post(
+                    f"{self.base_url}/api/chat",
+                    json=payload,
+                    timeout=self.timeout,
+                )
+                response.raise_for_status()
+                return response.json()
+            except requests.Timeout as exc:
+                last_error = exc
+                if attempt >= self.max_retries:
+                    raise TimeoutError(
+                        f"Ollama request timed out after {self.max_retries + 1} attempts"
+                    ) from exc
+            except requests.ConnectionError as exc:
+                last_error = exc
+                if attempt >= self.max_retries:
+                    raise ConnectionError(
+                        f"Could not connect to Ollama after {self.max_retries + 1} attempts"
+                    ) from exc
+
+            time.sleep(self.retry_backoff * (2**attempt))
+
+        raise RuntimeError("provider retry loop exited unexpectedly") from last_error
+
+
+class OpenAIProvider:
+    """OpenAI-compatible Chat Completions adapter.
+
+    The API key is read from OPENAI_API_KEY. No key is required for tests.
+    """
+
+    def __init__(
+        self,
+        base_url: str | None = None,
+        model: str | None = None,
+        api_key: str | None = None,
+        timeout: float = 120.0,
+    ) -> None:
+        self.base_url = (base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")).rstrip("/")
+        self.model = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        self.timeout = timeout
+
+    def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
+        if not self.api_key:
+            raise ValueError("OPENAI_API_KEY is required for OpenAIProvider")
+
         response = requests.post(
-            f"{self.base_url}/api/chat",
+            f"{self.base_url}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            },
             json={
                 "model": self.model,
                 "messages": messages,
                 "tools": tools,
-                "stream": False,
             },
-            timeout=120,
+            timeout=self.timeout,
         )
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        try:
+            return {"message": data["choices"][0]["message"]}
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ValueError("OpenAI provider returned an invalid response") from exc
 
 
 class IntentRouter:
@@ -168,7 +244,7 @@ def build_default_registry() -> ToolRegistry:
     registry.register(
         ToolSpec(
             name="calculator",
-            description="Calcula uma expressão aritmética simples.",
+            description="Calculate a small arithmetic expression.",
             parameters={
                 "type": "object",
                 "properties": {"expression": {"type": "string"}},
@@ -181,7 +257,7 @@ def build_default_registry() -> ToolRegistry:
     registry.register(
         ToolSpec(
             name="project_status",
-            description="Retorna o estado resumido do showcase Nexus Agent.",
+            description="Return structured status information for the Nexus Agent showcase.",
             parameters={
                 "type": "object",
                 "properties": {},
@@ -197,8 +273,37 @@ def build_default_registry() -> ToolRegistry:
     )
     registry.register(
         ToolSpec(
+            name="list_sandbox_files",
+            description="List files in the read-only showcase sandbox.",
+            parameters={
+                "type": "object",
+                "properties": {"max_items": {"type": "integer"}},
+                "required": [],
+                "additionalProperties": False,
+            },
+            handler=_list_sandbox_files,
+        )
+    )
+    registry.register(
+        ToolSpec(
+            name="read_sandbox_file",
+            description="Read a UTF-8 text file from the read-only showcase sandbox.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "max_chars": {"type": "integer"},
+                },
+                "required": ["path"],
+                "additionalProperties": False,
+            },
+            handler=_read_sandbox_file,
+        )
+    )
+    registry.register(
+        ToolSpec(
             name="run_tests",
-            description="Executa apenas a suíte de testes do showcase.",
+            description="Run only the showcase test suite.",
             parameters={
                 "type": "object",
                 "properties": {},
@@ -253,6 +358,54 @@ def _calculator(expression: str) -> dict[str, Any]:
     if not isinstance(value, (int, float)):
         raise ValueError("expression did not produce a number")
     return {"expression": expression, "result": value}
+
+
+
+
+def _sandbox_root() -> str:
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "sandbox")
+
+
+def _safe_sandbox_path(relative_path: str) -> str:
+    root = os.path.realpath(_sandbox_root())
+    candidate = os.path.realpath(os.path.join(root, relative_path))
+    if not (candidate == root or candidate.startswith(root + os.sep)):
+        raise ValueError("sandbox path escapes the allowed directory")
+    return candidate
+
+
+def _list_sandbox_files(max_items: int = 20) -> dict[str, Any]:
+    if max_items < 1 or max_items > 50:
+        raise ValueError("max_items must be between 1 and 50")
+
+    root = _sandbox_root()
+    files: list[str] = []
+    for current_root, _, filenames in os.walk(root):
+        for filename in filenames:
+            absolute = os.path.join(current_root, filename)
+            files.append(os.path.relpath(absolute, root).replace(os.sep, "/"))
+    files.sort()
+    return {"root": "showcase/sandbox", "files": files[:max_items], "truncated": len(files) > max_items}
+
+
+def _read_sandbox_file(path: str, max_chars: int = 4000) -> dict[str, Any]:
+    if not path or len(path) > 200:
+        raise ValueError("path must contain 1-200 characters")
+    if max_chars < 1 or max_chars > 8000:
+        raise ValueError("max_chars must be between 1 and 8000")
+
+    filename = _safe_sandbox_path(path)
+    if not os.path.isfile(filename):
+        raise FileNotFoundError(f"sandbox file not found: {path}")
+
+    with open(filename, "r", encoding="utf-8") as handle:
+        content = handle.read(max_chars + 1)
+
+    return {
+        "path": path,
+        "content": content[:max_chars],
+        "truncated": len(content) > max_chars,
+    }
 
 
 def _run_tests() -> dict[str, Any]:
