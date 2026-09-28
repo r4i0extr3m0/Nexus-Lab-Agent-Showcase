@@ -12,7 +12,9 @@ This module is intentionally small and self-contained. It demonstrates:
 
 from __future__ import annotations
 
+import ast
 import json
+import operator
 import os
 import subprocess
 import sys
@@ -209,13 +211,45 @@ def build_default_registry() -> ToolRegistry:
 
 
 def _calculator(expression: str) -> dict[str, Any]:
-    allowed = set("0123456789+-*/(). %")
-    if not expression or any(char not in allowed for char in expression):
-        raise ValueError("expression contains unsupported characters")
+    """Evaluate a small arithmetic language without eval()."""
+    if not expression or len(expression) > 100:
+        raise ValueError("expression must contain 1-100 characters")
+
+    operators = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.Mod: operator.mod,
+        ast.USub: operator.neg,
+        ast.UAdd: operator.pos,
+    }
+
     try:
-        value = eval(expression, {"__builtins__": {}}, {})
-    except Exception as exc:
+        tree = ast.parse(expression, mode="eval")
+    except SyntaxError as exc:
         raise ValueError("invalid arithmetic expression") from exc
+
+    def evaluate(node: ast.AST) -> int | float:
+        if isinstance(node, ast.Expression):
+            return evaluate(node.body)
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return node.value
+        if isinstance(node, ast.UnaryOp) and type(node.op) in operators:
+            return operators[type(node.op)](evaluate(node.operand))
+        if isinstance(node, ast.BinOp) and type(node.op) in operators:
+            left = evaluate(node.left)
+            right = evaluate(node.right)
+            if isinstance(node.op, (ast.Mult, ast.Div, ast.Mod)):
+                if abs(left) > 1_000_000 or abs(right) > 1_000_000:
+                    raise ValueError("arithmetic operands are too large")
+            return operators[type(node.op)](left, right)
+        raise ValueError("expression contains unsupported operations")
+
+    try:
+        value = evaluate(tree)
+    except ZeroDivisionError as exc:
+        raise ValueError("division by zero") from exc
     if not isinstance(value, (int, float)):
         raise ValueError("expression did not produce a number")
     return {"expression": expression, "result": value}
