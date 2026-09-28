@@ -23,3 +23,6 @@ jobs:
 
       - name: Run deterministic evaluation
         run: python showcase/evaluate.py
+
+      - name: Run reviewer demo
+        run: python showcase/demo_trace.py
