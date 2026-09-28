@@ -220,9 +220,18 @@ class OpenAIProvider:
 
 class IntentRouter:
     RULES = {
-        "testing": ("teste", "testes", "pytest", "validar", "suite"),
-        "tools": ("ferramenta", "tool", "executar", "rodar"),
-        "project": ("projeto", "arquitetura", "nexus", "status"),
+        "testing": (
+            "teste", "testes", "test", "tests", "pytest", "validar",
+            "validate", "suite",
+        ),
+        "tools": (
+            "ferramenta", "ferramentas", "tool", "tools", "executar",
+            "execute", "rodar", "run", "calcular", "calculate",
+            "calculator", "arquivo", "arquivos", "file", "files",
+            "ler", "read", "listar", "list", "sandbox", "documento",
+            "document", "docs",
+        ),
+        "project": ("projeto", "project", "arquitetura", "architecture", "nexus", "status"),
     }
 
     def route(self, text: str) -> tuple[str, float]:
