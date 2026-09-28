@@ -291,6 +291,7 @@ def test_openai_provider_maps_chat_completion_response(monkeypatch):
 
 def test_openai_provider_requires_api_key(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    provider = OpenAIProvider(api_key="")
 
     with pytest.raises(ValueError, match="OPENAI_API_KEY"):
-        OpenAIProvider(api_key="")
+        provider.chat([], [])
