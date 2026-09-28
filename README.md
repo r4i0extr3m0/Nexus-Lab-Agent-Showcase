@@ -9,6 +9,20 @@ This repository presents a compact agent runtime built to demonstrate practical 
 > Built as a focused technical showcase for junior AI-agent development roles.  
 > 🇧🇷 [Leia em português](README.pt-BR.md)
 
+## Observatory — visual control deck
+
+The repository also ships **Nexus Observatory**, a React front end that makes the runtime visible: intent routing, the bounded tool loop, validated tool contracts, the read-only sandbox, full execution traces, the ten-case evaluation and session telemetry.
+
+It is standalone. The same deterministic runtime is re-implemented in JavaScript, so a reviewer can run an agent and inspect every decision without Python, Ollama or an API key.
+
+```bash
+cd observatory
+npm install
+npm run dev
+```
+
+Full documentation: [observatory/README.md](observatory/README.md).
+
 ## 30-second reviewer demo
 
 Run a complete agent loop without a GPU, Ollama, or API key:

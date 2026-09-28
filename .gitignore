@@ -21,3 +21,7 @@ logs/
 *.wav
 *.tmp
 .tmp_*
+
+# Observatory (Node / Vite)
+observatory/node_modules/
+observatory/dist/

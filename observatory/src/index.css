@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-void text-star font-sans antialiased;
+    background-image:
+      radial-gradient(1100px 700px at 12% -10%, rgba(124, 92, 255, 0.16), transparent 60%),
+      radial-gradient(900px 650px at 92% 8%, rgba(34, 211, 238, 0.12), transparent 55%),
+      radial-gradient(1000px 900px at 60% 120%, rgba(76, 47, 214, 0.14), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgba(124, 92, 255, 0.35);
+    color: #fff;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(124, 92, 255, 0.35) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(124, 92, 255, 0.45), rgba(34, 211, 238, 0.35));
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply relative rounded-2xl border border-panel-edge/80 bg-panel/60 shadow-inset backdrop-blur-xl;
+  }
+
+  .glass-raised {
+    @apply relative rounded-2xl border border-panel-edge bg-panel-raised/70 shadow-inset backdrop-blur-xl;
+  }
+
+  .kicker {
+    @apply font-mono text-[10px] uppercase tracking-[0.24em] text-star-faint;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-pulse-soft via-aurora-soft to-aurora bg-clip-text text-transparent;
+  }
+
+  .panel-pad {
+    @apply p-5;
+  }
+
+  .focus-ring {
+    @apply outline-none transition focus-visible:ring-2 focus-visible:ring-aurora/60 focus-visible:ring-offset-2 focus-visible:ring-offset-void;
+  }
+
+  .hairline {
+    @apply border-t border-panel-edge/70;
+  }
+
+  .data-grid {
+    background-image: linear-gradient(rgba(124, 92, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124, 92, 255, 0.045) 1px, transparent 1px);
+    background-size: 34px 34px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 35%, transparent 78%);
+    -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 35%, transparent 78%);
+  }
+
+  .scan-edge::after {
+    content: '';
+    @apply pointer-events-none absolute inset-x-0 top-0 h-px overflow-hidden;
+    background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.9), transparent);
+    animation: scan-sweep 2.8s linear infinite;
+  }
+
+  .mono-scroll {
+    @apply overflow-auto font-mono text-[12px] leading-relaxed;
+  }
+}
