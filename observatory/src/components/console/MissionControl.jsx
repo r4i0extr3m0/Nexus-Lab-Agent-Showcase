@@ -71,16 +71,20 @@ function ArchitectureCard() {
 }
 
 export function MissionControl({ onOpenTrace }) {
-  const { runs, activeRun, activeRunId, runPrompt, clearHistory, setActiveRunId, settings, updateSettings } =
-    useObservatory()
-  const [busy, setBusy] = useState(false)
+  const {
+    runs,
+    activeRun,
+    activeRunId,
+    runPrompt,
+    clearHistory,
+    setActiveRunId,
+    settings,
+    updateSettings,
+    isRunning,
+  } = useObservatory()
 
-  function handleRun(prompt) {
-    setBusy(true)
-    window.setTimeout(() => {
-      runPrompt(prompt)
-      setBusy(false)
-    }, 320)
+  async function handleRun(prompt) {
+    await runPrompt(prompt)
   }
 
   return (
@@ -90,7 +94,7 @@ export function MissionControl({ onOpenTrace }) {
         <div className="space-y-5">
           <PromptComposer
             onRun={handleRun}
-            busy={busy}
+            busy={isRunning}
             maxToolRounds={settings.maxToolRounds}
             onMaxRoundsChange={(value) => updateSettings({ maxToolRounds: value })}
           />

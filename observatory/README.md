@@ -25,26 +25,24 @@ Most agent demos hide the interesting part inside a framework. This project does
 makes the control flow visible. Observatory is a portfolio-grade front end for an agent runtime
 built to show *engineering decisions*, not magic.
 
-It is intentionally **standalone**. The deterministic runtime that drives the interface is
-re-implemented in JavaScript so a reviewer can open the site, run an agent, and inspect every
-decision without installing Python, Ollama, a GPU or an API key. The Python runtime remains the
-source of truth; the browser runtime mirrors it step for step.
+It is now a **true control plane**. The Observatory connects via HTTP to the Python agent runtime exposed through a FastAPI backend. This means the frontend is no longer a JS simulation; it acts as a visual interface that executes, observes, and traces the *real* Python agent logic.
 
-```
+```text
 user request
-    │
-    ▼
-IntentRouter                         ← deterministic, inspectable routing
-    │
-    ▼
-NexusAgentRuntime
-    ├── ToolRegistry + validation    ← capability boundary
-    ├── bounded tool loop (max 3)    ← explicit execution budget
-    └── ExecutionTrace               ← request id, rounds, calls, latency, status
-            │
-            ▼
+    |
+Nexus Observatory (React/Vite)       <- Control Plane / Observability
+    | HTTP
+Nexus Agent API (FastAPI)            <- Agent API 
+    |
+IntentRouter                         <- deterministic, inspectable routing
+    |
+NexusAgentRuntime                    
+    |-- ToolRegistry + validation    <- capability boundary
+    |-- bounded tool loop (max 3)    <- explicit execution budget
+    |__ ExecutionTrace               <- request id, rounds, calls, latency, status
+            |
        ChatProvider
-     (deterministic planner · Ollama · OpenAI-compatible)
+     (Ollama / OpenAI-compatible)
 ```
 
 ---
@@ -178,3 +176,4 @@ shape. Keeping the mirror explicit is what makes the interface trustworthy.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+

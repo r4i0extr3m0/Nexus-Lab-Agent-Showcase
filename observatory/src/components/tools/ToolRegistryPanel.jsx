@@ -1,5 +1,5 @@
-import { Boxes, Calculator, FileText, FlaskConical, Info, List, ShieldCheck, Wrench } from 'lucide-react'
-import { buildDefaultRegistry } from '../../runtime/registry'
+import { useState, useEffect } from 'react'
+import { Boxes, Calculator, FileText, FlaskConical, Info, List, ShieldCheck, Wrench, Loader2 } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Panel, PanelHeader } from '../ui/Panel'
 import { JsonBlock } from '../ui/JsonBlock'
@@ -21,8 +21,8 @@ const CATEGORY_TONE = {
 
 function ToolCard({ spec }) {
   const Icon = TOOL_ICON[spec.name] || Wrench
-  const required = new Set(spec.parameters.required || [])
-  const properties = Object.entries(spec.parameters.properties || {})
+  const required = new Set(spec.parameters?.required || [])
+  const properties = Object.entries(spec.parameters?.properties || {})
 
   return (
     <div className="glass-raised overflow-hidden">
@@ -38,7 +38,7 @@ function ToolCard({ spec }) {
             </p>
           </div>
         </div>
-        <Badge tone={CATEGORY_TONE[spec.category] || 'star'}>{spec.category}</Badge>
+        <Badge tone={CATEGORY_TONE[spec.category] || 'star'}>{spec.category || 'tool'}</Badge>
       </div>
 
       <div className="px-4 py-3">
@@ -83,8 +83,25 @@ function ToolCard({ spec }) {
 }
 
 export function ToolRegistryPanel() {
-  const registry = buildDefaultRegistry()
-  const specs = registry.names().map((name) => registry.get(name))
+  const [specs, setSpecs] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/tools')
+      .then(res => res.json())
+      .then(data => {
+        // Unpack the JSON schemas into a flatter spec array to match the component format
+        const fetchedSpecs = (data.tools || []).map(t => ({
+           name: t.function.name,
+           description: t.function.description,
+           parameters: t.function.parameters,
+           category: t.function.name.includes('sandbox') ? 'io' : 'compute' // heuristic if category not passed from API
+        }))
+        setSpecs(fetchedSpecs)
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [])
 
   return (
     <div className="space-y-5">

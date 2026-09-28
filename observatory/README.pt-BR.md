@@ -1,4 +1,4 @@
-# Nexus Observatory
+﻿# Nexus Observatory
 
 [![CI](https://img.shields.io/badge/testes-31%20passando-4ade80?style=for-the-badge)](#testes)
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
@@ -9,43 +9,24 @@
 
 O Nexus Observatory é a camada visual do runtime do
 [Nexus-Lab Agent Showcase](https://github.com/r4i0extr3m0/Nexus-Lab-Agent-Showcase).
-Ele transforma um runtime de agentes compacto em Python em algo que você consegue *ver*:
-roteamento de intenção, loop de ferramentas limitado, contratos de ferramentas declarativos,
-sandbox somente-leitura e trace de execução completo — tudo em uma única interface com identidade
-visual própria.
+Agora ele é um **verdadeiro control plane**. O Observatory se conecta via HTTP ao runtime do agente em Python exposto por um backend FastAPI. Isso significa que o frontend não é mais uma simulação em JS; ele atua como uma interface visual que executa, observa e mapeia a lógica *real* do agente em Python.
 
-Este app fica no diretório `observatory/` do repositório Nexus-Lab.
-
-> Leia em [English](README.md).
-
----
-
-## Por que este projeto existe
-
-A maioria dos demos de agentes esconde a parte interessante dentro de um framework. Este projeto faz
-o contrário: torna o fluxo de controle visível. O Observatory é um front-end de nível portfólio para
-um runtime construído para expor *decisões de engenharia*, não mágica.
-
-Ele é intencionalmente **standalone**. O runtime determinístico que move a interface é
-reimplementado em JavaScript para que o avaliador abra o site, execute um agente e inspecione cada
-decisão sem instalar Python, Ollama, GPU ou chave de API. O runtime em Python continua sendo a
-fonte de verdade; o runtime no navegador o espelha passo a passo.
-
-```
+```text
 requisição do usuário
-    │
-    ▼
-IntentRouter                         ← roteamento determinístico e inspecionável
-    │
-    ▼
+    |
+Nexus Observatory (React/Vite)       <- Control Plane / Observability
+    | HTTP
+Nexus Agent API (FastAPI)            <- Agent API
+    |
+IntentRouter                         <- roteamento determinístico e inspecionável
+    |
 NexusAgentRuntime
-    ├── ToolRegistry + validação     ← fronteira de capacidades
-    ├── loop de ferramentas (max 3)  ← orçamento explícito de execução
-    └── ExecutionTrace               ← request id, rodadas, chamadas, latência, status
-            │
-            ▼
+    |-- ToolRegistry + validação     <- fronteira de capacidades
+    |-- loop de ferramentas (max 3)  <- orçamento explícito de execução
+    |__ ExecutionTrace               <- request id, rodadas, chamadas, latência, status
+            |
        ChatProvider
-   (planner determinístico · Ollama · OpenAI-compatible)
+   (Ollama / OpenAI-compatible)
 ```
 
 ---
@@ -180,3 +161,4 @@ confiável.
 ## Licença
 
 MIT — veja [LICENSE](LICENSE).
+

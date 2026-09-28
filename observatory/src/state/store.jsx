@@ -3,7 +3,7 @@
 // Mirrors the "all data stays local" posture of the Nexus-Lab showcase.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { runAgent } from '../runtime/runtime'
+import { runAgentAsync } from '../runtime/runtime'
 
 const STORAGE_KEY = 'nexus-observatory:v1'
 const MAX_RUNS = 40
@@ -32,6 +32,7 @@ export function ObservatoryProvider({ children }) {
   const [settings, setSettings] = useState(persisted.settings)
   const [activeRunId, setActiveRunId] = useState(persisted.runs[0]?.requestId ?? null)
   const [evalResults, setEvalResults] = useState(null)
+  const [isRunning, setIsRunning] = useState(false)
 
   useEffect(() => {
     try {
@@ -42,18 +43,24 @@ export function ObservatoryProvider({ children }) {
   }, [runs, settings])
 
   const runPrompt = useCallback(
-    (prompt) => {
+    async (prompt) => {
       const trimmed = String(prompt || '').trim()
       if (!trimmed) return null
       const requestId = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
-      const { answer, trace } = runAgent(trimmed, {
-        requestId,
-        maxToolRounds: settings.maxToolRounds,
-      })
-      const run = { ...trace, answer }
-      setRuns((previous) => [run, ...previous].slice(0, MAX_RUNS))
-      setActiveRunId(requestId)
-      return run
+      
+      setIsRunning(true)
+      try {
+        const { answer, trace } = await runAgentAsync(trimmed, {
+          requestId,
+          maxToolRounds: settings.maxToolRounds,
+        })
+        const run = { ...trace, answer }
+        setRuns((previous) => [run, ...previous].slice(0, MAX_RUNS))
+        setActiveRunId(requestId)
+        return run
+      } finally {
+        setIsRunning(false)
+      }
     },
     [settings.maxToolRounds],
   )
@@ -82,6 +89,7 @@ export function ObservatoryProvider({ children }) {
       activeRunId,
       activeRun: runs.find((run) => run.requestId === activeRunId) || runs[0] || null,
       evalResults,
+      isRunning,
       setEvalResults,
       setActiveRunId,
       runPrompt,
@@ -94,6 +102,7 @@ export function ObservatoryProvider({ children }) {
       settings,
       activeRunId,
       evalResults,
+      isRunning,
       runPrompt,
       clearHistory,
       deleteRun,

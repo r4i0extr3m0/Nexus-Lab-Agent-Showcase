@@ -38,12 +38,14 @@ export function EvaluationDashboard() {
 
   const summary = useMemo(() => (results ? summarizeEvaluation(results) : null), [results])
 
-  function runEvaluation(withTrace) {
+  async function runEvaluation(withTrace) {
     setRunning(true)
-    window.setTimeout(() => {
-      setResults(evaluateSuite({ withTrace }))
+    try {
+      const suiteResults = await evaluateSuite({ withTrace })
+      setResults(suiteResults)
+    } finally {
       setRunning(false)
-    }, 420)
+    }
   }
 
   return (
