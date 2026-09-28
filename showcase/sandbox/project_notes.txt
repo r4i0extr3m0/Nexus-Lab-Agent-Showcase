@@ -1,0 +1,12 @@
+Nexus Agent Showcase
+
+The sandbox demonstrates bounded, read-only file tools.
+
+The agent runtime separates model output from executable capabilities.
+Tools are explicitly registered, validated, and traced before execution.
+
+Topics:
+- tool contracts
+- bounded execution
+- deterministic testing
+- local-first inference
