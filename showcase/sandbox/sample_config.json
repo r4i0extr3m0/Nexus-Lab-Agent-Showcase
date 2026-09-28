@@ -1,0 +1,5 @@
+{
+  "project": "Nexus-Lab Agent Showcase",
+  "mode": "local-first",
+  "max_tool_rounds": 3
+}
